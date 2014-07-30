@@ -10,4 +10,5 @@ group :development do
   gem 'webmock'
   gem 'test-kitchen'
   gem 'kitchen-vagrant'
+  gem 'berkshelf'
 end

@@ -30,6 +30,6 @@ end
 chef_handler 'Chef::Handler::Jenkins' do
   source ::File.join(node['chef_handler']['handler_path'], 'jenkins_handler.rb')
   arguments :url => node['chef-handler-jenkins']['jenkins_url'],
-            :dryrun => node['chef-handler-jenkins']['handler_dry_run']
+            :dryrun => node['chef-handler-jenkins']['dryrun']
   action :enable
 end
