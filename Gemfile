@@ -6,4 +6,6 @@ gemspec
 
 group :development do
   gem 'pry'
+  gem 'rspec'
+  gem 'webmock'
 end

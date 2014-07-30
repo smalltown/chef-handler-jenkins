@@ -1,62 +1,97 @@
 require "chef/log"
 require 'digest/md5'
+require 'chef/handler'
+require 'openssl/digest'
+require 'json'
+require 'net/http'
+require 'uri'
 
 class Chef
   class Handler
     #noinspection RubyStringKeysInHashInspection
     class Jenkins < Chef::Handler
+      JAVA_DATE_FORMAT = '%a, %d %b %Y %H:%M:%S %z'
+
       def initialize(config)
         @config = config
+        Chef::Log.warn('DRY RUN: No data will be submitted to Jenkins') if @config[:dryrun]
         raise ArgumentError, 'Jenkins URL is not specified' unless @config[:url]
       end
 
       def report
-        # for interactive exploration
-        #require 'pry'
-        #binding.pry
+        Chef::Log.info "Machine name: #{run_status.node.name}"
 
-        updates = []
+        report_data = jenkins_report
 
-        puts "Machine name: #{run_status.node.name}"
-        run_status.updated_resources.each do |res|
-          # res is instance of CookbookFile
-          if res.class <= Chef::Resource::File
-            updates << {
-              "path" => res.path,
-              "action" => res.action,
-              "md5" => Digest::MD5.hexdigest(IO.read(res.path)),
-              "type" => res.class.name
-            }
-            # res.checksum is SHA1 sum
-          end
+        Chef::Log.info("DRY RUN: Would have subitted the following data: #{JSON.pretty_generate report_data}") if @config[:dryrun]
 
-          if res.class == Chef::Resource::SaladJenkinsTracking
-            # TODO is this a good way to check the class name?
-            updates << {
-                "path" => res.path,
-                "md5" => res.checksum,
-                "type" => res.class.name
-            }
-          end
+        unless @config[:dryrun]
+          Chef::Log.info "Submitting run data to #{@config[:url]}: #{JSON.pretty_generate report_data}"
+          submit_to_jenkins(jenkins_host, report_data)
         end
+      end
 
-        # add envelop to the data
-        env = {
-          "node" => run_status.node.name,
-          "environment" => run_status.node.environment,
-          "start_time" => run_status.start_time.rfc2822,
-          "end_time" => run_status.end_time.rfc2822,
-          "updates" => updates
+      def jenkins_report
+        envelope.merge({updates: updated_files.collect { |r| resource_record r }
+                                              .collect { |r| fingerprint_resource_record r}})
+      end
+
+      def updates
+        run_status.updated_resources
+      end
+
+      def updated_files
+        updates.select { |resource| resource.kind_of?(Chef::Resource::File) && ::File.file?(resource.path) }
+      end
+
+      def resource_record(resource)
+        {
+          path: resource.path,
+          action: resource.action,
+          type: resource.class.name
         }
+      end
 
-        print env.inspect
+      def fingerprint_resource_record(resource)
+        resource.merge(md5: fingerprint(resource[:path]))
+      end
 
-        if false  # TODO: work in progress
-        # if !Chef::Config[:solo]
-          # databag submission only works in chef-client
-          submit_databag run_status,env
+      def envelope
+        {
+          node: run_status.node.name,
+          environment: run_status.node.environment,
+          start_time: run_status.start_time.strftime(JAVA_DATE_FORMAT),
+          end_time: run_status.end_time.strftime(JAVA_DATE_FORMAT)
+        }
+      end
+
+      def jenkins_host
+        URI::split(@config[:url])[2]
+      end
+
+      def submit_to_jenkins(host, result)
+        http = Net::HTTP.new(host)
+
+        http.request_post('/chef/report', result.to_json, {'Content-Type' => 'application/json'}) do |res|
+          if res.code != '200'
+            Chef::Log.warn "Jenkins did not respond OK to the Chef report. The res code was #{res.code}.
+                            The body was: #{res.body}"
+          else
+            Chef::Log.info 'The report has been submitted to Jenkins.'
+          end
+        end.code
+      end
+
+      def fingerprint(path)
+        md5 = OpenSSL::Digest::MD5.new
+
+        File.open(path) do |file|
+          until file.eof? do
+            md5 << file.read(2**20)
+          end
         end
-        submit_jenkins run_status,env
+
+        md5.digest.unpack('H*').first
       end
 
       # Submit the tracking report as a databag
@@ -82,11 +117,6 @@ class Chef
 
         i.raw_data = env
         i.save id
-      end
-
-      def submit_jenkins(run_status, env)
-        r = Chef::REST.new(@config[:url])
-        r.post("chef/report", env)
       end
     end
   end
