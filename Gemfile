@@ -8,4 +8,6 @@ group :development do
   gem 'pry'
   gem 'rspec'
   gem 'webmock'
+  gem 'test-kitchen'
+  gem 'kitchen-vagrant'
 end
