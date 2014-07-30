@@ -17,19 +17,5 @@
 # limitations under the License.
 #
 
-include_recipe 'chef_handler'
-
-cookbook_file 'jenkins_handler.rb' do
-  path ::File.join(node['chef_handler']['handler_path'], 'jenkins_handler.rb')
-  owner 'root'
-  group 'root'
-  mode 0755
-  action :create
-end
-
-chef_handler 'Chef::Handler::Jenkins' do
-  source ::File.join(node['chef_handler']['handler_path'], 'jenkins_handler.rb')
-  arguments :url => node['chef-handler-jenkins']['jenkins_url'],
-            :dryrun => node['chef-handler-jenkins']['handler_dry_run']
-  action :enable
-end
+node.default['chef-handler-jenkins']['jenkins_url'] = 'http://www.example.com/'
+node.default['chef-handler-jenkins']['dryrun'] = false
