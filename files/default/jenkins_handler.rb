@@ -23,9 +23,12 @@ class Chef
 
         report_data = jenkins_report
 
-        Chef::Log.info("DRY RUN: Would have subitted the following data: #{JSON.pretty_generate report_data}") if @config[:dryrun]
-
-        unless @config[:dryrun]
+        if @config[:dryrun]
+          Chef::Log.info("DRY RUN: Would have subitted the following data: #{JSON.pretty_generate report_data}") if @config[:dryrun]
+          ::File.open('/tmp/chef-handler-jenkins-dryrun.json', 'w') do |file|
+            file << JSON.pretty_generate(report_data)
+          end
+        else
           Chef::Log.info "Submitting run data to #{@config[:url]}: #{JSON.pretty_generate report_data}"
           submit_to_jenkins(jenkins_host, report_data)
         end

@@ -1,7 +1,7 @@
 require 'rspec'
 require 'date'
 require 'webmock/rspec'
-require_relative '../lib/chef/handler/jenkins'
+require_relative '../files/default/jenkins_handler'
 
 RSpec.configure do |config|
   config.mock_framework = :rspec
@@ -35,6 +35,11 @@ describe Chef::Handler::Jenkins do
       expect(subject).to_not receive(:submit_to_jenkins)
 
       subject.report
+    end
+
+    it 'should create a file' do
+      subject.report
+      expect(::File.file? '/tmp/chef-handler-jenkins-dryrun.json').to be(true)
     end
   end
 
