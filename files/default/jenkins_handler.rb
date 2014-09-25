@@ -30,7 +30,7 @@ class Chef
           end
         else
           Chef::Log.info "Submitting run data to #{@config[:url]}: #{JSON.pretty_generate report_data}"
-          submit_to_jenkins(jenkins_host, report_data)
+          submit_to_jenkins(jenkins_uri, report_data)
         end
       end
 
@@ -68,12 +68,12 @@ class Chef
         }
       end
 
-      def jenkins_host
-        URI::split(@config[:url])[2]
+      def jenkins_uri
+        URI(@config[:url])
       end
 
-      def submit_to_jenkins(host, result)
-        http = Net::HTTP.new(host)
+      def submit_to_jenkins(uri, result)
+        http = Net::HTTP.new(uri.host, uri.port)
 
         http.request_post('/chef/report', result.to_json, {'Content-Type' => 'application/json'}) do |res|
           if res.code != '200'

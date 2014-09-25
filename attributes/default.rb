@@ -18,4 +18,4 @@
 #
 
 node.default['chef-handler-jenkins']['jenkins_url'] = 'http://www.example.com/'
-node.default['chef-handler-jenkins']['dryrun'] = false
+node.default['chef-handler-jenkins']['dryrun'] = true
